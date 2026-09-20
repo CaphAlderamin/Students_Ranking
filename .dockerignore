@@ -1,0 +1,6 @@
+.git
+data-vault/
+vendor/
+var/
+test/
+*.log
