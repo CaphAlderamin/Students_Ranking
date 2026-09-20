@@ -1,0 +1,25 @@
+{
+    "name": "tpu/students-ranking",
+    "description": "Автоматическое распределение студентов 1-го курса ТПУ на модули дополнительной специализации",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": "^8.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "App\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "platform": {
+            "php": "8.3.33"
+        },
+        "sort-packages": true
+    }
+}

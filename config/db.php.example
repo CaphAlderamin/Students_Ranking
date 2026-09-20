@@ -1,0 +1,18 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Шаблон конфигурации подключения к базе данных.
+ *
+ * Скопируйте файл в config/db.php и заполните реальными значениями.
+ * config/db.php исключён из git и не коммитится (см. .gitignore).
+ */
+return [
+    'host' => '127.0.0.1',
+    'port' => 3306,
+    'database' => 'students_ranking',
+    'username' => 'ranking',
+    'password' => 'secret',
+    'charset' => 'utf8mb4',
+];
