@@ -9,7 +9,6 @@ endif
 COMPOSE := docker compose
 PHP_EXEC := $(COMPOSE) exec -T php
 
-MIGRATIONS := $(wildcard database/migrations/*.sql)
 PHPUNIT := $(wildcard vendor/bin/phpunit)
 PHPSTAN := $(wildcard vendor/bin/phpstan)
 
@@ -29,7 +28,7 @@ composer-install:
 	@$(PHP_EXEC) composer install
 
 migrate:
-	@$(if $(MIGRATIONS),$(PHP_EXEC) sh /app/scripts/migrate.sh,echo [B1-05] миграции не найдены: появятся в B1-05)
+	@$(PHP_EXEC) sh /app/scripts/migrate.sh
 
 seed:
 	@echo [branch-2] seed не реализован: наполнение в branch-2

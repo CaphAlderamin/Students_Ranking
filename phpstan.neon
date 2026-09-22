@@ -3,4 +3,5 @@ parameters:
     paths:
         - src
         - tests
+        - scripts/migrate.php
     tmpDir: var/phpstan
