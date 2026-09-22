@@ -1,0 +1,77 @@
+```mermaid
+erDiagram
+  schools {
+    int id PK
+    varchar(16) code UK
+    varchar(255) name
+  }
+  student_groups {
+    int id PK
+    int school_id FK
+    varchar(32) name
+    boolean is_technical
+    int admission_year
+  }
+  students {
+    int id PK
+    int group_id FK
+    varchar(255) full_name
+    boolean is_target_quota
+    boolean is_paid
+    boolean is_disabled
+    smallint entrance_exams_sum
+    decimal(4,3) gpa_sem12
+    decimal(4,3) gpa_basic
+    smallint entrance_test_score
+  }
+  modules {
+    int id PK
+    int school_id FK
+    varchar(255) title
+    varchar(16) module_type
+    int min_students
+    int max_students
+    varchar(9) academic_year
+  }
+  disciplines {
+    int id PK
+    int module_id FK
+    varchar(255) title
+    tinyint semester
+  }
+  module_eligible_schools {
+    int module_id FK
+    int school_id FK
+  }
+  applications {
+    int id PK
+    int student_id UK FK
+    datetime submitted_at
+  }
+  application_items {
+    int id PK
+    int application_id FK
+    int module_id FK
+    tinyint priority
+  }
+  assignments {
+    int id PK
+    int student_id UK FK
+    int module_id FK
+    varchar(16) algorithm
+    varchar(16) source
+    int rank_position
+    datetime assigned_at
+  }
+  schools ||--o{ student_groups : ""
+  student_groups ||--o{ students : ""
+  schools ||--o{ modules : ""
+  modules ||--o{ disciplines : ""
+  modules ||--o{ module_eligible_schools : ""
+  schools ||--o{ module_eligible_schools : ""
+  students ||--o{ applications : ""
+  applications ||--o{ application_items : ""
+  modules ||--o{ application_items : ""
+  students ||--o{ assignments : ""
+  modules ||--o{ assignments : ""
+```

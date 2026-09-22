@@ -9,7 +9,6 @@ endif
 COMPOSE := docker compose
 PHP_EXEC := $(COMPOSE) exec -T php
 
-SCHEMA_DBML := $(wildcard database/schema.dbml)
 MIGRATIONS := $(wildcard database/migrations/*.sql)
 PHPUNIT := $(wildcard vendor/bin/phpunit)
 PHPSTAN := $(wildcard vendor/bin/phpstan)
@@ -48,4 +47,6 @@ stan:
 	@$(if $(PHPSTAN),$(PHP_EXEC) sh /app/scripts/docker-stan.sh,echo [B1-03] phpstan не установлен: ожидается в B1-03)
 
 dbml:
-	@$(if $(SCHEMA_DBML),npx --yes -p @dbml/cli dbml2mermaid $(SCHEMA_DBML) > docs/schema.mmd,echo [B1-04] database/schema.dbml не создан: ожидается в B1-04)
+	@npm install --prefix tools/dbml --no-audit --no-fund --silent
+	@node tools/dbml/render.cjs
+

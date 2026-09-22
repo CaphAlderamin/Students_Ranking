@@ -1,0 +1,87 @@
+// Схема БД students-ranking: распределение студентов 1 курса ТПУ на модули МДС.
+// Источник истины — этот файл; снапшоты и mermaid в data-vault синхронизируются правилом SSOT.
+
+Table schools {
+  id int [pk, increment]
+  code varchar(16) [unique, not null]
+  name varchar(255) [not null]
+}
+
+Table student_groups {
+  id int [pk, increment]
+  school_id int [not null, ref: > schools.id]
+  name varchar(32) [not null]
+  is_technical boolean [not null, default: true]
+  admission_year int [not null]
+}
+
+Table students {
+  id int [pk, increment]
+  group_id int [not null, ref: > student_groups.id]
+  full_name varchar(255) [not null]
+  is_target_quota boolean [not null, default: false]
+  is_paid boolean [not null, default: false]
+  is_disabled boolean [not null, default: false]
+  entrance_exams_sum smallint [not null, note: 'ВИ без русского языка и инд. достижений']
+  gpa_sem12 decimal(4,3) [not null, note: 'аттестации 1-2 сем']
+  gpa_basic decimal(4,3) [not null]
+  entrance_test_score smallint [not null, note: 'входное тестирование']
+  Indexes {
+    group_id [name: 'idx_students_group']
+  }
+}
+
+Table modules {
+  id int [pk, increment]
+  school_id int [not null, ref: > schools.id, note: 'школа-организатор']
+  title varchar(255) [not null]
+  module_type varchar(16) [not null, note: 'technical|humanitarian|free']
+  min_students int [not null]
+  max_students int [not null]
+  academic_year varchar(9) [not null]
+}
+
+Table disciplines {
+  id int [pk, increment]
+  module_id int [not null, ref: > modules.id]
+  title varchar(255) [not null]
+  semester tinyint [not null, note: '3|4|5 (ADR-005)']
+}
+
+Table module_eligible_schools {
+  module_id int [ref: > modules.id]
+  school_id int [ref: > schools.id]
+  Indexes {
+    (module_id, school_id) [unique]
+  }
+}
+
+Table applications {
+  id int [pk, increment]
+  student_id int [unique, not null, ref: > students.id]
+  submitted_at datetime [not null]
+}
+
+Table application_items {
+  id int [pk, increment]
+  application_id int [not null, ref: > applications.id]
+  module_id int [not null, ref: > modules.id]
+  priority tinyint [not null, note: '1-3']
+  Indexes {
+    (application_id, priority) [unique]
+    module_id [name: 'idx_items_module']
+  }
+}
+
+Table assignments {
+  id int [pk, increment]
+  student_id int [unique, not null, ref: > students.id]
+  module_id int [not null, ref: > modules.id]
+  algorithm varchar(16) [not null, note: 'date|criteria']
+  source varchar(16) [not null, note: 'competition|free|target_quota']
+  rank_position int [null]
+  assigned_at datetime [not null]
+  Indexes {
+    module_id [name: 'idx_assign_module']
+  }
+}

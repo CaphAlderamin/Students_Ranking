@@ -1,0 +1,9 @@
+{
+  "name": "students-ranking-tools-dbml",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Генерация mermaid-диаграммы из database/schema.dbml (SSOT схемы)",
+  "dependencies": {
+    "@dbml/core": "^10.1.1"
+  }
+}

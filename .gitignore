@@ -479,6 +479,9 @@ data-vault/
 # Develop artifacts
 test/
 
+##### Node (tools/dbml)
+node_modules/
+
 ##### Project
 /var/
 .env
