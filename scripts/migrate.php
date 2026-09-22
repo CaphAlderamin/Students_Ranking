@@ -77,7 +77,7 @@ foreach ($migrationFiles as $file) {
     $row = $selectApplied->fetch(PDO::FETCH_ASSOC);
 
     if ($row !== false) {
-        if (hash_equals((string) $row['checksum'], $checksum)) {
+        if (hash_equals($row['checksum'], $checksum)) {
             ++$skipped;
             echo "[B1-05] уже применена, пропуск: {$version}\n";
             continue;
@@ -142,7 +142,8 @@ function splitStatements(string $sql): array
 {
     $statements = [];
     $chunk = [];
-    foreach (preg_split('/\r?\n/', $sql) ?: [] as $line) {
+    $lines = preg_split('/\r?\n/', $sql);
+    foreach ($lines !== false ? $lines : [] as $line) {
         $trimmed = trim($line);
         if ($trimmed === '' || str_starts_with($trimmed, '--')) {
             continue;
