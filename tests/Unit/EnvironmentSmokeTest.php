@@ -14,6 +14,6 @@ final class EnvironmentSmokeTest extends TestCase
 {
     public function testPhpVersionMatchesStack(): void
     {
-        $this->assertGreaterThanOrEqual(80300, PHP_VERSION_ID);
+        self::assertGreaterThanOrEqual(80300, PHP_VERSION_ID);
     }
 }
