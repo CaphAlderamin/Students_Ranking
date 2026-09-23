@@ -26,11 +26,29 @@ use PHPUnit\Framework\TestCase;
  * журнал schema_migrations). Фикстура изолирована кодом школы QA_B2_01
  * и вычищается в tearDown в порядке внешних ключей.
  *
+ * Изоляция от внешнего сидера (B2-03, пункт 0): после миграций setUpBeforeClass
+ * выполняет TRUNCATE-протокол сидовых таблиц, поэтому make seed && make test
+ * зелёны в любом порядке. Список таблиц — локальная константа (у DataSeeder
+ * список приватный; вынос в public API ядра B2-02 не выполняется).
+ *
  * @see структура схемы — database/schema.dbml
  */
 final class RepositoryRoundTripTest extends TestCase
 {
     private const string SCHOOL_CODE = 'QA_B2_01';
+
+    /** Сидовые таблицы (B2-03, пункт 0): очищаются с отключёнными FOREIGN_KEY_CHECKS. */
+    private const array SEED_TABLES = [
+        'assignments',
+        'application_items',
+        'applications',
+        'module_eligible_schools',
+        'disciplines',
+        'modules',
+        'students',
+        'student_groups',
+        'schools',
+    ];
     private const string SCHOOL_NAME = 'QA-школа B2-01';
     private const string GROUP_NAME = 'QA-группа 2025';
     private const string GROUP_NAME_2024 = 'QA-группа 2024';
@@ -67,6 +85,24 @@ final class RepositoryRoundTripTest extends TestCase
 
         self::$factory = PdoFactory::fromConfigFile(self::$configPath);
         self::$pdo = self::$factory->create();
+
+        // Пункт 0 (B2-03): изоляция от внешнего seed -> make seed && make test
+        // зелёны в любом порядке.
+        self::truncateSeedTables();
+    }
+
+    /**
+     * TRUNCATE сидовых таблиц (B2-03, пункт 0). Выполняется только в
+     * setUpBeforeClass: фикстура теста живёт в setUp/tearDown под собственным
+     * протоколом cleanupFixture().
+     */
+    private static function truncateSeedTables(): void
+    {
+        self::$pdo->exec('SET FOREIGN_KEY_CHECKS=0');
+        foreach (self::SEED_TABLES as $table) {
+            self::$pdo->exec('TRUNCATE TABLE `' . $table . '`');
+        }
+        self::$pdo->exec('SET FOREIGN_KEY_CHECKS=1');
     }
 
     protected function setUp(): void
