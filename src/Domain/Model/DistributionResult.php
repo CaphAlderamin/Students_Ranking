@@ -21,13 +21,13 @@ final readonly class DistributionResult
     /** @var list<Student> студенты без назначения (в финале — пусто, R-11) */
     public array $unassigned;
 
-    /** @var array<string, mixed> статистика по модулям (ключ — id модуля) */
+    /** @var array<int|string, mixed> статистика по модулям (ключ — id модуля; число приводится к int) */
     public array $stats;
 
     /**
      * @param array<int, mixed> $assignments итоговые назначения (приманяются только Assignment)
      * @param array<int, mixed> $unassigned  нераспределённые (приманяются только Student)
-     * @param array<string, mixed> $stats    статистика по модулям
+     * @param array<int|string, mixed> $stats статистика по модулям
      */
     public function __construct(array $assignments, array $unassigned, array $stats)
     {

@@ -6,6 +6,7 @@ parameters:
     paths:
         - src
         - tests
+        - config
         - scripts/migrate.php
         - scripts/seed.php
         - scripts/db-reset.php
