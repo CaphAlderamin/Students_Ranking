@@ -11,6 +11,27 @@ jobs:
   tests:
     name: tests (phpunit + phpstan)
     runs-on: ubuntu-latest
+    env:
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_DATABASE: students_ranking
+      MYSQL_USER: ranking
+      MYSQL_PASSWORD: secret
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: students_ranking
+          MYSQL_USER: ranking
+          MYSQL_PASSWORD: secret
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -u$MYSQL_USER -p$MYSQL_PASSWORD --silent"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 30s
     steps:
       - name: Клонировать репозиторий
         uses: actions/checkout@v4
@@ -20,10 +41,13 @@ jobs:
           php-version: '8.3'
           tools: composer
           coverage: none
+          extensions: pdo_mysql, mbstring
       - name: Установить зависимости из lock
         uses: ramsey/composer-install@v3
         with:
           dependency-versions: locked
+      - name: Подготовить конфигурацию БД
+        run: cp config/db.php.example config/db.php
       - name: PHPStan (level max)
         run: vendor/bin/phpstan analyse --no-progress
       - name: PHPUnit
