@@ -12,7 +12,7 @@ PHP_EXEC := $(COMPOSE) exec -T php
 PHPUNIT := $(wildcard vendor/bin/phpunit)
 PHPSTAN := $(wildcard vendor/bin/phpstan)
 
-.PHONY: up down restart composer-install migrate seed reset-db reset-db-migrate reset-db-migrate-seed distribute test stan dbml
+.PHONY: up down restart composer-install migrate seed reset-db reset-db-migrate reset-db-migrate-seed distribute test stan coverage dbml
 
 help:
 	@echo "Available commands:"
@@ -29,6 +29,7 @@ help:
 	@echo "  test          - Run tests"
 	@echo "  stan          - Run PHPStan"
 	@echo "  stan-test     - Run PHPStan and tests"
+	@echo "  coverage      - Run tests with code coverage (pcov)
 	@echo "  dbml          - Install DBML tools"
 	@echo "  mysql         - Run MySQL shell"
 
@@ -73,6 +74,9 @@ stan:
 	@$(if $(PHPSTAN),$(PHP_EXEC) sh /app/scripts/docker-stan.sh,echo [B1-03] phpstan не установлен: ожидается в B1-03)
 
 stan-test: stan test
+
+coverage:
+	@$(if $(PHPUNIT),$(PHP_EXEC) sh /app/scripts/docker-coverage.sh,echo [B3-04] phpunit не установлен: ожидается в B1-03)
 
 dbml:
 	@npm install --prefix tools/dbml --no-audit --no-fund --silent

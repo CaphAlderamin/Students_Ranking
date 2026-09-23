@@ -26,6 +26,7 @@
         "fakerphp/faker": "^1.24",
         "phpstan/phpstan": "^2.0",
         "phpstan/phpstan-strict-rules": "^2.0",
+        "phpunit/php-code-coverage": "^11.0",
         "phpunit/phpunit": "^11.5"
     }
 }
