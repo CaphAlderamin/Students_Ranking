@@ -14,7 +14,8 @@ use App\Domain\ValueObject\RatingWeights;
  * Вычисляет для пула кандидатов полный ключ стратегии критериев «тир платности →
  * взвешенный нормализованный балл» (Q-02: рейтинг по критериям DESC). Используется
  * как тай-брейк стратегией по дате (Q-02) и как основной ключ CriteriaBasedRanking
- * (B3-02, «Меняет» — без дублирования расчёта).
+ * (B3-02, «Меняет» — без дублирования расчёта). Контракт вынесен в
+ * CriteriaRatingInterface (B3-02: мокабельность для теста DoD), логика не менялась.
  *
  * Нормализация min-max 0–100 выполняется ВНУТРИ пула: значение каждого компонента
  * линейно проецируется на [0; 100]; при вырожденном диапазоне (max === min, включая
@@ -23,7 +24,7 @@ use App\Domain\ValueObject\RatingWeights;
  * масштабируется в int ДО округления: `score = (int) round((Σ norm_i × w_i + bonus) × 10⁴)`
  * — дробная гранулярность тай-брейка сохраняется (порядок операций фиксирован).
  */
-final readonly class CriteriaRating
+final readonly class CriteriaRating implements CriteriaRatingInterface
 {
     /** Компоненты взвешенного балла (ключи синхронны с RatingWeights, ADR-002). */
     private const array COMPONENTS = [
@@ -41,7 +42,7 @@ final readonly class CriteriaRating
     }
 
     /**
-     * Критериальные ключи по каждому кандидату пула.
+     * Критериальные ключи по каждому кандидату пула (CriteriaRatingInterface).
      *
      * @param list<RankingCandidate> $pool пул кандидатов
      *
