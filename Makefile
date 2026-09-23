@@ -29,7 +29,7 @@ help:
 	@echo "  test          - Run tests"
 	@echo "  stan          - Run PHPStan"
 	@echo "  stan-test     - Run PHPStan and tests"
-	@echo "  coverage      - Run tests with code coverage (pcov)
+	@echo "  coverage      - Run tests with code coverage (pcov)"
 	@echo "  dbml          - Install DBML tools"
 	@echo "  mysql         - Run MySQL shell"
 
