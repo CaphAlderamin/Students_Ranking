@@ -8,4 +8,5 @@ parameters:
         - tests
         - scripts/migrate.php
         - scripts/seed.php
+        - scripts/db-reset.php
     tmpDir: var/phpstan

@@ -12,7 +12,25 @@ PHP_EXEC := $(COMPOSE) exec -T php
 PHPUNIT := $(wildcard vendor/bin/phpunit)
 PHPSTAN := $(wildcard vendor/bin/phpstan)
 
-.PHONY: up down restart composer-install migrate seed distribute test stan dbml
+.PHONY: up down restart composer-install migrate seed reset-db reset-db-migrate reset-db-migrate-seed distribute test stan dbml
+
+help:
+	@echo "Available commands:"
+	@echo "  up            - Start the services"
+	@echo "  down          - Stop the services"
+	@echo "  restart       - Restart the services"
+	@echo "  composer-install - Install Composer dependencies"
+	@echo "  migrate       - Run database migrations"
+	@echo "  seed          - Seed the database"
+	@echo "  reset-db      - Reset the database"
+	@echo "  reset-db-migrate - Reset the database and run migrations"
+	@echo "  reset-db-migrate-seed - Reset the database, run migrations, and seed"
+	@echo "  distribute    - "
+	@echo "  test          - Run tests"
+	@echo "  stan          - Run PHPStan"
+	@echo "  stan-test     - Run PHPStan and tests"
+	@echo "  dbml          - Install DBML tools"
+	@echo "  mysql         - Run MySQL shell"
 
 up:
 	@$(COMPOSE) up -d --build
@@ -33,6 +51,15 @@ migrate:
 seed:
 	@$(PHP_EXEC) sh /app/scripts/seed.sh
 
+reset-db:
+	@$(PHP_EXEC) sh /app/scripts/db-reset.sh
+
+reset-db-migrate:
+	@$(PHP_EXEC) sh /app/scripts/db-reset.sh migrate
+
+reset-db-migrate-seed:
+	@$(PHP_EXEC) sh /app/scripts/db-reset.sh seed
+
 ALGO ?= date
 FMT ?= tsv
 
@@ -44,6 +71,8 @@ test:
 
 stan:
 	@$(if $(PHPSTAN),$(PHP_EXEC) sh /app/scripts/docker-stan.sh,echo [B1-03] phpstan не установлен: ожидается в B1-03)
+
+stan-test: stan test
 
 dbml:
 	@npm install --prefix tools/dbml --no-audit --no-fund --silent
