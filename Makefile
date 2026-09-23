@@ -25,7 +25,7 @@ help:
 	@echo "  reset-db      - Reset the database"
 	@echo "  reset-db-migrate - Reset the database and run migrations"
 	@echo "  reset-db-migrate-seed - Reset the database, run migrations, and seed"
-	@echo "  distribute    - "
+	@echo "  distribute    - Run distribution via bin/console (ALGO=date|criteria, FMT=tsv reserved for B4)"
 	@echo "  test          - Run tests"
 	@echo "  stan          - Run PHPStan"
 	@echo "  stan-test     - Run PHPStan and tests"
@@ -65,7 +65,7 @@ ALGO ?= date
 FMT ?= tsv
 
 distribute:
-	@echo [branch-3] distribute не реализован: наполнение в branch-3 (ALGO=$(ALGO), FMT=$(FMT))
+	@$(PHP_EXEC) php bin/console distribute --algorithm=$(ALGO)
 
 test:
 	@$(if $(PHPUNIT),$(PHP_EXEC) sh /app/scripts/docker-test.sh,echo [B1-03] phpunit не установлен: ожидается в B1-03)

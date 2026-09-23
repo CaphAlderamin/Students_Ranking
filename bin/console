@@ -1,0 +1,55 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Точка входа CLI (B3-05): собирает продакшен-связку и регистрирует DistributeCommand.
+ *
+ * Параметры соединения — из config/db.php (игнорируется git, источник — db.php.example);
+ * веса рейтинга — config/ranking.php (ADR-002); флаг ADR-004 — config/distribution.php.
+ * Использование:
+ *   php bin/console distribute --algorithm=date|criteria
+ */
+
+use App\Application\Ranking\CriteriaRating;
+use App\Domain\ValueObject\RatingWeights;
+use App\Infrastructure\Db\PdoApplicationRepository;
+use App\Infrastructure\Db\PdoFactory;
+use App\Infrastructure\Db\PdoModuleRepository;
+use App\Infrastructure\Db\PdoStudentRepository;
+use App\Ui\Cli\DistributeCommand;
+use Symfony\Component\Console\Application;
+
+$root = dirname(__DIR__);
+
+require $root . '/vendor/autoload.php';
+
+$pdoFactory = PdoFactory::fromConfigFile($root . '/config/db.php');
+$pdo = $pdoFactory->create();
+
+/** @var array{weights: array<string, float>, bonuses: array<string, float>, tiers: array<string, bool>, normalization: string} $ratingConfig */
+$ratingConfig = require $root . '/config/ranking.php';
+$ratingWeights = new RatingWeights(
+    $ratingConfig['weights'],
+    $ratingConfig['bonuses'],
+    $ratingConfig['tiers'],
+    $ratingConfig['normalization'],
+);
+
+/** @var array{target_quota_no_application_strategy: string} $distributionConfig */
+$distributionConfig = require $root . '/config/distribution.php';
+
+$distribute = new DistributeCommand(
+    students: new PdoStudentRepository($pdoFactory),
+    modules: new PdoModuleRepository($pdoFactory),
+    applications: new PdoApplicationRepository($pdoFactory),
+    pdo: $pdo,
+    criteriaRating: new CriteriaRating($ratingWeights),
+    targetQuotaNoApplicationStrategy: $distributionConfig['target_quota_no_application_strategy'],
+);
+
+$application = new Application('Students Ranking', '1.0.0');
+$application->add($distribute);
+$application->setDefaultCommand('distribute', false);
+
+exit($application->run());
