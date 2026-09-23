@@ -31,7 +31,7 @@ migrate:
 	@$(PHP_EXEC) sh /app/scripts/migrate.sh
 
 seed:
-	@echo [branch-2] seed не реализован: наполнение в branch-2
+	@$(PHP_EXEC) sh /app/scripts/seed.sh
 
 ALGO ?= date
 FMT ?= tsv
@@ -49,3 +49,5 @@ dbml:
 	@npm install --prefix tools/dbml --no-audit --no-fund --silent
 	@node tools/dbml/render.cjs
 
+mysql:
+	@$(COMPOSE) exec -it mysql mysql --default-character-set=utf8mb4 -u root -p
