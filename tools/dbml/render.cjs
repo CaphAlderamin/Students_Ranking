@@ -5,6 +5,11 @@ const { Parser } = require('@dbml/core');
 const ROOT = path.resolve(__dirname, '..', '..');
 const SCHEMA = path.join(ROOT, 'database', 'schema.dbml');
 const OUT = path.join(ROOT, 'docs', 'schema.mmd');
+const README = path.join(ROOT, 'README.md');
+
+// B5-05: маркеры секции README, зеркало docs/schema.mmd (README = единый источник отображения)
+const MARK_START = '<!-- SCHEMA-MMD-START -->';
+const MARK_END = '<!-- SCHEMA-MMD-END -->';
 
 const KEY_PRIORITY = { PK: 0, FK: 1, UK: 2 };
 
@@ -78,6 +83,23 @@ try {
 
   fs.writeFileSync(OUT, mermaid);
   console.log('OK: ' + path.relative(ROOT, OUT) + ' generated (pure mermaid, no fence)');
+
+  // B5-05: зеркалируем секцию README между маркерами из свежего docs/schema.mmd.
+  let readme = fs.readFileSync(README, 'utf8');
+  const startIdx = readme.indexOf(MARK_START);
+  const endIdx = startIdx === -1 ? -1 : readme.indexOf(MARK_END, startIdx + MARK_START.length);
+  if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) {
+    console.error(
+      'README.md: не найдены маркеры ' + MARK_START + ' / ' + MARK_END +
+      ' — добавьте их вокруг mermaid-фенса (задача B5-05); секция README не синхронизирована.'
+    );
+    process.exit(1);
+  }
+
+  const section = '\n```mermaid\n' + mermaid + '```\n';
+  readme = readme.slice(0, startIdx + MARK_START.length) + section + readme.slice(endIdx);
+  fs.writeFileSync(README, readme);
+  console.log('OK: README.md schema section synced (' + MARK_START + ' … ' + MARK_END + ')');
 } catch (err) {
   console.error('DBML -> mermaid error: ' + err.message);
   process.exit(1);

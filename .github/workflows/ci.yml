@@ -80,12 +80,12 @@ jobs:
       - name: Коммит документации
         if: steps.filter.outputs.schema == 'true'
         run: |
-          if git diff --quiet -- docs/schema.mmd; then
-            echo "docs/schema.mmd не изменился — коммит не нужен"
+          if git diff --quiet -- docs/schema.mmd README.md; then
+            echo "docs/schema.mmd / README.md не изменились — коммит не нужен"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/schema.mmd
-          git commit -m "docs: обновить schema.mmd [skip ci]"
+          git add docs/schema.mmd README.md
+          git commit -m "docs: обновить schema.mmd и README (mermaid-секция) [skip ci]"
           git push
