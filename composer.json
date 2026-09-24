@@ -1,0 +1,34 @@
+{
+    "name": "tpu/students-ranking",
+    "description": "Автоматическое распределение студентов 1-го курса ТПУ на модули дополнительной специализации",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": "^8.3",
+        "league/csv": "^9.0",
+        "symfony/console": "^7.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "App\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "platform": {
+            "php": "8.3.33"
+        },
+        "sort-packages": true
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.24",
+        "phpstan/phpstan": "^2.0",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "phpunit/php-code-coverage": "^11.0",
+        "phpunit/phpunit": "^11.5"
+    }
+}

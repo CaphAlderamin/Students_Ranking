@@ -1,0 +1,13 @@
+includes:
+    - vendor/phpstan/phpstan-strict-rules/rules.neon
+
+parameters:
+    level: max
+    paths:
+        - src
+        - tests
+        - config
+        - scripts/migrate.php
+        - scripts/seed.php
+        - scripts/db-reset.php
+    tmpDir: var/phpstan

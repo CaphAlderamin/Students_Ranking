@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: tests (phpunit + phpstan)
+    runs-on: ubuntu-latest
+    env:
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_DATABASE: students_ranking
+      MYSQL_USER: ranking
+      MYSQL_PASSWORD: secret
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: students_ranking
+          MYSQL_USER: ranking
+          MYSQL_PASSWORD: secret
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -u$MYSQL_USER -p$MYSQL_PASSWORD --silent"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 30s
+    steps:
+      - name: Клонировать репозиторий
+        uses: actions/checkout@v4
+      - name: Настроить PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer
+          coverage: none
+          extensions: pdo_mysql, mbstring
+      - name: Установить зависимости из lock
+        uses: ramsey/composer-install@v3
+        with:
+          dependency-versions: locked
+      - name: Подготовить конфигурацию БД
+        run: cp config/db.php.example config/db.php
+      - name: PHPStan (level max)
+        run: vendor/bin/phpstan analyse --no-progress
+      - name: PHPUnit
+        run: vendor/bin/phpunit
+
+  schema-docs:
+    name: schema-docs (генерация mermaid)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.event_name == 'push'
+    steps:
+      - name: Клонировать репозиторий
+        uses: actions/checkout@v4
+      - name: Проверить изменение database/schema.dbml
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            schema:
+              - 'database/schema.dbml'
+      - name: Настроить Node
+        if: steps.filter.outputs.schema == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Сгенерировать docs/schema.mmd
+        if: steps.filter.outputs.schema == 'true'
+        run: make dbml
+      - name: Коммит документации
+        if: steps.filter.outputs.schema == 'true'
+        run: |
+          if git diff --quiet -- docs/schema.mmd README.md; then
+            echo "docs/schema.mmd / README.md не изменились — коммит не нужен"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/schema.mmd README.md
+          git commit -m "docs: обновить schema.mmd и README (mermaid-секция) [skip ci]"
+          git push
