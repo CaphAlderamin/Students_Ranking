@@ -20,10 +20,26 @@ use App\Domain\Model\RankingCandidate;
  */
 final readonly class DateBasedRanking implements RankingStrategyInterface
 {
+    /**
+     * Стратегия ранжирования «по дате подачи заявки» — очередь заявок (алгоритм 1, R-17).
+     *
+     * @param CriteriaRating $criteriaRating критериальный ключ тай-брейка (Q-02, ADR-002)
+     */
     public function __construct(private CriteriaRating $criteriaRating)
     {
     }
 
+    /**
+     * Сортирует пул кандидатов по дате подачи заявки (Strategy 1, R-17).
+     *
+     * Порядок: submittedAt ASC → критериальный ключ DESC (тир, затем балл) →
+     * id ASC (детерминированный полный порядок). Сортируется копия — входной
+     * пул не мутируется.
+     *
+     * @param list<RankingCandidate> $pool пул кандидатов
+     *
+     * @return list<RankingCandidate> пул по убыванию приоритета записи
+     */
     public function sort(array $pool): array
     {
         $keys = $this->criteriaRating->keys($pool);
@@ -50,6 +66,11 @@ final readonly class DateBasedRanking implements RankingStrategyInterface
         return $sorted;
     }
 
+    /**
+     * Алгоритм стратегии (для сводки CLI/веба).
+     *
+     * @return RankingAlgorithm признак algorithm date
+     */
     public function algorithm(): RankingAlgorithm
     {
         return RankingAlgorithm::Date;

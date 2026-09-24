@@ -20,11 +20,29 @@ use League\Csv\Writer;
  */
 abstract class AbstractFileExporter implements FileExporterInterface
 {
+    /**
+     * Базовый экспортёр отчётов — общий цикл записи отчётных файлов (B4-01, ADR-003).
+     *
+     * @param ExportReportAssemblerInterface $assembler ассемблер пакетов отчётных файлов
+     */
     public function __construct(
         private readonly ExportReportAssemblerInterface $assembler,
     ) {
     }
 
+    /**
+     * Экспортирует отчётные файлы школ по пакетам ассемблера.
+     *
+     * Каталог вывода создаётся рекурсивно при первом пакете; имена файлов —
+     * `{school_code}_{academic_year}.{ext}` (ADR-003).
+     *
+     * @param DistributionResult $result    итоги распределения (R-18)
+     * @param string             $targetDir каталог вывода (создаётся при отсутствии)
+     *
+     * @return list<string> пути созданных файлов
+     *
+     * @throws \RuntimeException при недоступном каталоге или ошибке записи файла
+     */
     public function export(DistributionResult $result, string $targetDir): array
     {
         $paths = [];

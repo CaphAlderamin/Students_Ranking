@@ -22,6 +22,22 @@ final readonly class Student
     public float $gpaBasic;
     public int $entranceTestScore;
 
+    /**
+     * Студент — метрики рейтинга и флаги когорт (таблица students, B1-06).
+     *
+     * @param int    $id                идентификатор студента (≥ 1)
+     * @param int    $groupId           идентификатор учебной группы (≥ 1)
+     * @param string $fullName          ФИО (непустое; тримится)
+     * @param bool   $isTargetQuota     целевик (R-03)
+     * @param bool   $isPaid            платник (тир, R-15)
+     * @param bool   $isDisabled        инвалид (аддитивный бонус, R-16)
+     * @param int    $entranceExamsSum  сумма баллов ВИ, 0..300 (Q-4, ADR-002)
+     * @param float  $gpaSem12          средний балл 1–2 семестров, 2.0..5.0 (Q-4)
+     * @param float  $gpaBasic          средний балл базового блока, 2.0..5.0 (Q-4)
+     * @param int    $entranceTestScore балл входного тестирования, 0..100 (Q-4)
+     *
+     * @throws \InvalidArgumentException при нарушении границ метрик (Q-4, ADR-002)
+     */
     public function __construct(
         int $id,
         int $groupId,

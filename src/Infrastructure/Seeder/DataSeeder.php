@@ -19,6 +19,13 @@ use App\Infrastructure\Db\PdoFactory;
  */
 final readonly class DataSeeder
 {
+    /**
+     * Оркестратор сидера (B2-02).
+     *
+     * @param \PDO             $pdo       PDO-соединение (TRUNCATE + INSERT)
+     * @param SeedCatalog      $catalog   каталог школ/модулей/групп
+     * @param StudentGenerator $generator генератор строк студентов (Faker, фикс. seed)
+     */
     public function __construct(
         private \PDO $pdo,
         private SeedCatalog $catalog,

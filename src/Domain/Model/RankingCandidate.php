@@ -13,6 +13,12 @@ namespace App\Domain\Model;
  */
 final readonly class RankingCandidate
 {
+    /**
+     * Кандидат конкурсного ранжирования — DTO пула стратегий (ADR-007).
+     *
+     * @param Student            $student     студент конкурсного пула
+     * @param \DateTimeImmutable $submittedAt момент подачи заявки (тай-брейк, ADR-007)
+     */
     public function __construct(
         public Student $student,
         public \DateTimeImmutable $submittedAt,

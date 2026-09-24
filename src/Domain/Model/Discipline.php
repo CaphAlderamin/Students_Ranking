@@ -16,6 +16,15 @@ final readonly class Discipline
     public string $title;
     public Semester $semester;
 
+    /**
+     * Дисциплина модуля (таблица disciplines).
+     *
+     * @param int      $id       идентификатор дисциплины (≥ 1)
+     * @param string   $title    название (непустое; тримится)
+     * @param Semester $semester семестр изучения (R-02/ADR-005: для МДС — 3, 4, 5)
+     *
+     * @throws \InvalidArgumentException при id < 1 или пустом title
+     */
     public function __construct(int $id, string $title, Semester $semester)
     {
         if ($id < 1) {

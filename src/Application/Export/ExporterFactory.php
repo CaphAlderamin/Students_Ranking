@@ -16,12 +16,25 @@ use App\Domain\Enum\ExportFormat;
  */
 final class ExporterFactory
 {
+    /**
+     * Фабрика экспортёров — единая точка создания форматов (B4-01, ADR-003).
+     *
+     * @param ExportReportAssemblerInterface $assembler     ассемблер отчёта для всех форматов
+     * @param ExportFormat                   $defaultFormat дефолтный формат (config/export.php)
+     */
     public function __construct(
         private readonly ExportReportAssemblerInterface $assembler,
         private readonly ExportFormat $defaultFormat = ExportFormat::Csv,
     ) {
     }
 
+    /**
+     * Создаёт экспортёр заданного формата.
+     *
+     * @param ExportFormat $format формат экспорта (csv|tsv, ADR-003)
+     *
+     * @return FileExporterInterface реализация, пишущая файлы в выбранном формате
+     */
     public function create(ExportFormat $format): FileExporterInterface
     {
         return match ($format) {
@@ -30,6 +43,11 @@ final class ExporterFactory
         };
     }
 
+    /**
+     * Создаёт экспортёр дефолтного формата (config/export.php, ADR-003).
+     *
+     * @return FileExporterInterface экспортёр дефолтного формата
+     */
     public function createDefault(): FileExporterInterface
     {
         return $this->create($this->defaultFormat);

@@ -15,5 +15,10 @@ interface ModuleRepositoryInterface
     /** @return Module[] */
     public function findAll(): array;
 
+    /**
+     * Сохраняет итоговые назначения студентов на модули (таблица assignments).
+     *
+     * @param Assignment ...$a назначения финального распределения (B3-05, только final)
+     */
     public function saveAssignments(Assignment ...$a): void;
 }

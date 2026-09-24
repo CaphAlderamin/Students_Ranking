@@ -26,6 +26,14 @@ use App\Infrastructure\Db\PdoFactory;
  */
 final readonly class EdgeSeeder
 {
+    /**
+     * Оркестратор сидера краевых когорт (B2-03).
+     *
+     * @param \PDO             $pdo       PDO-соединение (UPDATE/INSERT)
+     * @param SeedCatalog      $catalog   базовый каталог (наполняется через DataSeeder)
+     * @param CohortCatalog    $cohorts   каталог когорт (сегменты, недоборный модуль)
+     * @param StudentGenerator $generator генератор строк студентов
+     */
     public function __construct(
         private \PDO $pdo,
         private SeedCatalog $catalog,

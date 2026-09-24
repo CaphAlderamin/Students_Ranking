@@ -22,6 +22,11 @@ final readonly class PdoModuleRepository implements ModuleRepositoryInterface
 {
     private \PDO $pdo;
 
+    /**
+     * Репозиторий модулей поверх PDO (B2-01).
+     *
+     * @param PdoFactory $factory фабрика PDO-соединения
+     */
     public function __construct(PdoFactory $factory)
     {
         $this->pdo = $factory->create();
@@ -79,6 +84,13 @@ final readonly class PdoModuleRepository implements ModuleRepositoryInterface
         return $modules;
     }
 
+    /**
+     * Сохраняет итоговые назначения в одну транзакцию (assignments, только final).
+     *
+     * @param Assignment ...$a назначения финального распределения (B3-05)
+     *
+     * @throws \PDOException при ошибке записи (транзакция откатывается)
+     */
     public function saveAssignments(Assignment ...$a): void
     {
         if ($a === []) {

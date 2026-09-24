@@ -37,6 +37,11 @@ final readonly class CriteriaRating implements CriteriaRatingInterface
     /** Множитель масштаба балла: стабильность сравнений float → int. */
     private const int SCALE = 10_000;
 
+    /**
+     * Критериальный ключ — тир платности → взвешенный нормализованный балл (ADR-002, R-15, R-16).
+     *
+     * @param RatingWeights $ratingWeights веса компонентов и настройки (config/ranking.php)
+     */
     public function __construct(private RatingWeights $ratingWeights)
     {
     }

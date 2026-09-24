@@ -55,6 +55,19 @@ final class DistributeCommand extends Command
     /** Флаг ADR-004: целевик без заявки → свободный модуль школы. */
     public const string FREE_MODULE_FLAG = 'free_module';
 
+    /**
+     * CLI-команда `distribute` — конструктор-инжекция из связки bin/console (B3-05, B4-05).
+     *
+     * @param StudentRepositoryInterface    $students                       репозиторий студентов (контракт)
+     * @param ModuleRepositoryInterface     $modules                        репозиторий модулей (контракт)
+     * @param ApplicationRepositoryInterface $applications                  репозиторий заявок (контракт)
+     * @param \PDO                          $pdo                            сырое PDO (группы/карта школ, DELETE)
+     * @param CriteriaRating                $criteriaRating                 критериальный ключ (ADR-002)
+     * @param string                        $targetQuotaNoApplicationStrategy флаг ADR-004 (profile_module/free_module)
+     * @param ExportFormat                  $defaultFormat                  дефолтный формат экспорта (config/export.php)
+     * @param string                        $exportDirectory                каталог вывода отчётов (config/export.php)
+     * @param ZipArchiver                   $zipArchiver                    архиватор ZIP (B4-04)
+     */
     public function __construct(
         private readonly StudentRepositoryInterface $students,
         private readonly ModuleRepositoryInterface $modules,

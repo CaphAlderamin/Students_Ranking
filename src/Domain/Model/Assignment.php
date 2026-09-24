@@ -23,6 +23,17 @@ final readonly class Assignment
     /** Позиция в рейтинге (NULL — неконкурсные источники: free/target_quota). */
     public ?int $rank;
 
+    /**
+     * Итоговое распределение студента на модуль (таблица assignments).
+     *
+     * @param int              $studentId идентификатор студента (≥ 1)
+     * @param int              $moduleId  идентификатор модуля (≥ 1)
+     * @param RankingAlgorithm $algorithm алгоритм ранжирования, определивший запись
+     * @param AssignmentSource $source    источник назначения (competition/free/target_quota)
+     * @param int|null         $rank      позиция в рейтинге (null — неконкурсные источники)
+     *
+     * @throws \InvalidArgumentException при id < 1 или rank < 1
+     */
     public function __construct(
         int $studentId,
         int $moduleId,

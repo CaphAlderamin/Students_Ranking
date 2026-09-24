@@ -24,6 +24,9 @@ final class StudentGenerator
 
     private Generator $faker;
 
+    /**
+     * Генератор студентов — создаёт Faker ru_RU (детерминированные метрики, B2-02).
+     */
     public function __construct()
     {
         $this->faker = Factory::create('ru_RU');

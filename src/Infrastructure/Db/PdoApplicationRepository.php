@@ -18,6 +18,11 @@ final readonly class PdoApplicationRepository implements ApplicationRepositoryIn
 {
     private \PDO $pdo;
 
+    /**
+     * Репозиторий заявок поверх PDO (B2-01).
+     *
+     * @param PdoFactory $factory фабрика PDO-соединения
+     */
     public function __construct(PdoFactory $factory)
     {
         $this->pdo = $factory->create();

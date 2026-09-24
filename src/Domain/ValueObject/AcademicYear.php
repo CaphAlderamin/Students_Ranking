@@ -16,6 +16,13 @@ final readonly class AcademicYear
 
     public string $value;
 
+    /**
+     * Учебный год — строгий формат YYYY-YYYY (Q-1; имена отчётных файлов, ADR-003).
+     *
+     * @param string $value год в формате YYYY-YYYY (например, 2025-2026)
+     *
+     * @throws \InvalidArgumentException при несоответствии формату
+     */
     public function __construct(string $value)
     {
         $value = trim($value);

@@ -22,10 +22,26 @@ use App\Domain\Model\RankingCandidate;
  */
 final readonly class CriteriaBasedRanking implements RankingStrategyInterface
 {
+    /**
+     * Стратегия ранжирования «по критериям» — полный критериальный порядок (алгоритм 2, R-17).
+     *
+     * @param CriteriaRatingInterface $criteriaRating критериальный ключ (ADR-002, R-15)
+     */
     public function __construct(private CriteriaRatingInterface $criteriaRating)
     {
     }
 
+    /**
+     * Сортирует пул кандидатов по критериальному ключу (Strategy 2, R-17).
+     *
+     * Порядок: тир платности DESC → взвешенный нормализованный балл DESC →
+     * дата подачи ASC → id ASC (детерминированный полный порядок).
+     * Сортируется копия — входной пул не мутируется.
+     *
+     * @param list<RankingCandidate> $pool пул кандидатов
+     *
+     * @return list<RankingCandidate> пул по убыванию приоритета записи
+     */
     public function sort(array $pool): array
     {
         $keys = $this->criteriaRating->keys($pool);
@@ -52,6 +68,11 @@ final readonly class CriteriaBasedRanking implements RankingStrategyInterface
         return $sorted;
     }
 
+    /**
+     * Алгоритм стратегии (для сводки CLI/веба).
+     *
+     * @return RankingAlgorithm признак algorithm criteria
+     */
     public function algorithm(): RankingAlgorithm
     {
         return RankingAlgorithm::Criteria;

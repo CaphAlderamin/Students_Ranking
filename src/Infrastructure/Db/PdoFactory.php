@@ -14,6 +14,16 @@ namespace App\Infrastructure\Db;
  */
 final readonly class PdoFactory
 {
+    /**
+     * Фабрика PDO — параметры соединения MySQL (B2-01).
+     *
+     * @param string $host     хост MySQL (в docker — `mysql`, не 127.0.0.1)
+     * @param string $database имя базы данных
+     * @param string $username пользователь
+     * @param string $password пароль
+     * @param int    $port     порт (по умолчанию 3306)
+     * @param string $charset  кодировка соединения (по умолчанию utf8mb4)
+     */
     public function __construct(
         private string $host,
         private string $database,

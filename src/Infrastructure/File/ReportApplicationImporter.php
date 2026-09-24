@@ -45,6 +45,19 @@ final readonly class ReportApplicationImporter implements ApplicationImporterInt
         $this->students = $students;
     }
 
+    /**
+     * Импортирует заявки из файла (CSV `;` / TSV `\t`, ADR-003).
+     *
+     * Заголовок идентифицирует колонки (`student_id`, `module_id`, `priority`).
+     * Невалидная строка не валит файл — фиксируется как «файл: строка N: причина»
+     * и возвращается в отчёте; пустой файл даёт ноль записей без ошибок.
+     *
+     * @param string $filePath путь к файлу заявок
+     *
+     * @return ImportedApplications заявки + ошибки построчно
+     *
+     * @throws ImportException при невозможности прочитать файл
+     */
     public function import(string $filePath): ImportedApplications
     {
         $content = @file_get_contents($filePath);

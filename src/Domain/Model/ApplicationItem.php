@@ -13,6 +13,14 @@ final readonly class ApplicationItem
     public int $moduleId;
     public int $priority;
 
+    /**
+     * Элемент заявки — выбор модуля по приоритету (таблица application_items).
+     *
+     * @param int $moduleId идентификатор модуля (≥ 1)
+     * @param int $priority приоритет выбора 1..3 (R-12)
+     *
+     * @throws \InvalidArgumentException при moduleId < 1 или priority вне 1..3
+     */
     public function __construct(int $moduleId, int $priority)
     {
         if ($moduleId < 1) {

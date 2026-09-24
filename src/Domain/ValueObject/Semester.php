@@ -14,6 +14,13 @@ final readonly class Semester
 {
     public int $value;
 
+    /**
+     * Номер семестра — диапазон 1..12 (Q-2).
+     *
+     * @param int $value номер семестра 1..12
+     *
+     * @throws \InvalidArgumentException при выходе за 1..12
+     */
     public function __construct(int $value)
     {
         if ($value < 1 || $value > 12) {
@@ -22,6 +29,11 @@ final readonly class Semester
         $this->value = $value;
     }
 
+    /**
+     * Возвращает значение семестра как целое число.
+     *
+     * @return int номер семестра (1..12)
+     */
     public function asInt(): int
     {
         return $this->value;

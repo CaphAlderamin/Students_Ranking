@@ -120,6 +120,11 @@ final readonly class RatingWeights
         return $this->tiers;
     }
 
+    /**
+     * Возвращает схему нормализации компонентов рейтинга (ADR-002).
+     *
+     * @return string имя схемы (например, min_max_0_100)
+     */
     public function normalization(): string
     {
         return $this->normalization;

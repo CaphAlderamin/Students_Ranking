@@ -53,6 +53,12 @@ final readonly class ApplicationSeeder
     /** Число модулей-концентраторов перегрузки (3 технических с большим спросом). */
     private const int CONCENTRATOR_COUNT = 3;
 
+    /**
+     * Генератор заявок сидера (B2-04).
+     *
+     * @param \PDO          $pdo     PDO-соединение для вставки заявок и элементов
+     * @param CohortCatalog $cohorts каталог когорт (профиль недоборного модуля)
+     */
     public function __construct(
         private \PDO $pdo,
         private CohortCatalog $cohorts,
