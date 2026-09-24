@@ -26,7 +26,7 @@ help:
 	@echo "  reset-db-migrate - Reset the database and run migrations"
 	@echo "  reset-db-migrate-seed - Reset the database, run migrations, and seed"
 	@echo "  distribute    - Run distribution via bin/console (ALGO=date|criteria, FMT=tsv reserved for B4)"
-	@echo "  web           - Run web UI (dev server php -S :8080, docroot public/, B4-04)"
+	@echo "  web           - Run web UI (http://127.0.0.1:8080/, dev server php -S :8080, docroot public/, B4-04)"
 	@echo "  test          - Run tests"
 	@echo "  stan          - Run PHPStan"
 	@echo "  stan-test     - Run PHPStan and tests"
@@ -69,6 +69,7 @@ distribute:
 	@$(PHP_EXEC) php bin/console distribute --algorithm=$(ALGO)
 
 web:
+	@$(COMPOSE) up -d
 	@$(PHP_EXEC) sh /app/scripts/docker-web.sh
 
 test:
