@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace App\Ui\Cli;
 
 use App\Application\Distribution\DistributionService;
+use App\Application\Export\ExporterFactory;
+use App\Application\Export\SchoolReportAssembler;
 use App\Application\Ranking\CriteriaRating;
 use App\Application\Ranking\RankingStrategyInterface;
+use App\Domain\Enum\ExportFormat;
 use App\Domain\Model\DistributionResult;
+use App\Domain\Model\Module;
 use App\Domain\Model\StudentGroup;
 use App\Infrastructure\Db\ApplicationRepositoryInterface;
 use App\Infrastructure\Db\ModuleRepositoryInterface;
 use App\Infrastructure\Db\StudentRepositoryInterface;
+use App\Infrastructure\File\ZipArchiver;
 use App\Infrastructure\Seeder\SeedCatalog;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -20,11 +25,13 @@ use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * CLI-команда `distribute` (B3-05): запуск распределения студентов на модули на реальном сиде.
+ * CLI-команда `distribute` (B3-05, экспорт — B4-05): запуск распределения студентов
+ * на модули на реальном сиде + экспорт отчётных файлов по школам и ZIP-архива.
  *
  * Композиция (конструктор-инжекция, план v3 §2.2): репозитории (контракты),
- * критериальный ключ (ADR-002), сырой PDO (группы/карта школ вне контрактов и
- * DELETE перед перезаписью), флаг ADR-004 — все значения передаются из связки
+ * критериальный ключ (ADR-002), сырой PDO (группы/карта школ/коды школ вне
+ * контрактов и DELETE перед перезаписью), флаг ADR-004, дефолтный формат экспорта
+ * и каталог вывода (config/export.php, B4-05) — все значения передаются из связки
  * `bin/console`; конфиги команда сама НЕ читает (юнит-тестируемость без БД).
  *
  * Последовательность execute():
@@ -33,7 +40,9 @@ use Symfony\Component\Console\Output\OutputInterface;
  *   3. стратегия через {@see RankingStrategyFactory} по опции --algorithm;
  *   4. прогон DistributionService;
  *   5. запись в БД (удаление существующих + вставка финалов через контракт);
- *   6. вывод краткой машинной сводки (план §2.8).
+ *   6. экспорт отчётов (ExporterFactory + SchoolReportAssembler, ADR-003) и
+ *      ZIP-архив (ZipArchiver, B4-04) — формат из опции --format либо конфиг-дефолт;
+ *   7. вывод краткой машинной сводки (план §2.8) + путей файлов и архива (B4-05).
  *
  * Ошибки ядра/фабрики (\InvalidArgumentException, \RuntimeException) — в stderr, exit 1.
  * Юнит-тесты — CommandTester + моки (App\Tests\Unit\Ui\Cli\DistributeCommandTest).
@@ -53,6 +62,9 @@ final class DistributeCommand extends Command
         private readonly \PDO $pdo,
         private readonly CriteriaRating $criteriaRating,
         private readonly string $targetQuotaNoApplicationStrategy,
+        private readonly ExportFormat $defaultFormat = ExportFormat::Csv,
+        private readonly string $exportDirectory = '',
+        private readonly ZipArchiver $zipArchiver = new ZipArchiver(),
     ) {
         parent::__construct();
     }
@@ -60,13 +72,19 @@ final class DistributeCommand extends Command
     protected function configure(): void
     {
         $this->setName('distribute')
-            ->setDescription('Распределение студентов на модули МДС (R-17: --algorithm=date|criteria).')
+            ->setDescription('Распределение студентов на модули МДС (R-17: --algorithm=date|criteria; ADR-003: --format=csv|tsv).')
             ->addOption(
                 'algorithm',
                 null,
                 InputOption::VALUE_REQUIRED,
                 'Алгоритм ранжирования: ' . RankingStrategyFactory::DATE_ALGORITHM
                 . ' (по дате подачи) или ' . RankingStrategyFactory::CRITERIA_ALGORITHM . ' (по критериям).',
+            )
+            ->addOption(
+                'format',
+                null,
+                InputOption::VALUE_OPTIONAL,
+                'Формат отчётных файлов и архива: csv|tsv (по умолчанию — из config/export.php, ADR-003).',
             );
     }
 
@@ -99,6 +117,7 @@ final class DistributeCommand extends Command
             $this->pdo->exec('DELETE FROM assignments');
             $this->modules->saveAssignments(...$result->assignments);
 
+            $this->exportAndArchive($input, $output, $modules, $result);
             $this->renderSummary($output, $strategy, count($students), $result);
 
             return Command::SUCCESS;
@@ -108,6 +127,103 @@ final class DistributeCommand extends Command
 
             return Command::FAILURE;
         }
+    }
+
+    /**
+     * Экспорт отчётных файлов (ADR-003) и ZIP-архива (B4-04, единый контур B4-05):
+     * тот же ExporterFactory + SchoolReportAssembler, что и в вебе (одинаковый результат).
+     *
+     * @param list<Module> $modules каталог для карты moduleId → Module (B4-02)
+     *
+     * @throws \InvalidArgumentException при невалидном --format (R-17-стиль, ADR-003)
+     * @throws \RuntimeException         при пустом каталоге экспорта / ошибке записи архива
+     */
+    private function exportAndArchive(
+        InputInterface $input,
+        OutputInterface $output,
+        array $modules,
+        DistributionResult $result,
+    ): void {
+        if ($this->exportDirectory === '') {
+            throw new \RuntimeException('Экспорт недоступен: не задан каталог вывода (config/export.php).');
+        }
+
+        $format = $this->resolveFormat($input);
+        $paths = array_values(
+            (new ExporterFactory(
+                new SchoolReportAssembler($this->moduleById($modules), $this->schoolCodes()),
+            ))->create($format)->export($result, $this->exportDirectory),
+        );
+
+        $archiveName = 'students-ranking_' . (new \DateTimeImmutable('now'))->format('Ymd_His') . '.zip';
+        $archivePath = rtrim($this->exportDirectory, '/\\') . DIRECTORY_SEPARATOR . $archiveName;
+        $written = file_put_contents($archivePath, $this->zipArchiver->archive($paths));
+        if ($written === false) {
+            throw new \RuntimeException('Не удалось записать архив: ' . $archivePath);
+        }
+
+        $output->writeln('Файлы отчётов (' . count($paths) . '):');
+        foreach ($paths as $path) {
+            $output->writeln('  ' . $path);
+        }
+        $output->writeln('Архив: ' . $archivePath);
+    }
+
+    /**
+     * Фактический формат экспорта: опция --format перекрывает конфиг-дефолт (ADR-003).
+     */
+    private function resolveFormat(InputInterface $input): ExportFormat
+    {
+        /** @var string|null $value */
+        $value = $input->getOption('format');
+        if ($value === null) {
+            return $this->defaultFormat;
+        }
+
+        $format = ExportFormat::tryFrom($value);
+        if ($format === null) {
+            throw new \InvalidArgumentException('Неизвестный формат "' . $value . '"; разрешены: csv|tsv.');
+        }
+
+        return $format;
+    }
+
+    /**
+     * Коды школ (таблица `schools`) для имён отчётных файлов (ADR-001/ADR-003) —
+     * вне контрактов, сырой PDO (паттерн веба readSchoolCodes, B4-04).
+     *
+     * @return array<int, string> schoolId → код
+     */
+    private function schoolCodes(): array
+    {
+        $stmt = $this->pdo->prepare('SELECT id, code FROM schools ORDER BY id');
+        $stmt->execute();
+        /** @var list<array{id: int|string, code: string|null}> $rows */
+        $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        $codes = [];
+        foreach ($rows as $row) {
+            $codes[(int) $row['id']] = (string) $row['code'];
+        }
+
+        return $codes;
+    }
+
+    /**
+     * Каталог модулей с ключом по id — школьный ассемблер (B4-02) требует ключ, не список.
+     *
+     * @param list<Module> $modules
+     *
+     * @return array<int, Module>
+     */
+    private function moduleById(array $modules): array
+    {
+        $map = [];
+        foreach ($modules as $module) {
+            $map[$module->id] = $module;
+        }
+
+        return $map;
     }
 
     /**

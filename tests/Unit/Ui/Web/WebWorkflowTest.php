@@ -83,6 +83,29 @@ final class WebWorkflowTest extends TestCase
         self::assertNotNull($result->archiveBytes);
     }
 
+    public function testAlgorithmCriteriaWithFormatTsvExportsTsv(): void
+    {
+        // B4-05: выбор алгоритма (date|criteria) и формата (csv|tsv) из формы
+        // → конвейер экспортирует файлы именно выбранного формата (ADR-003).
+        $workflow = $this->buildWorkflow(
+            algorithm: 'criteria',
+            format: ExportFormat::Tsv,
+        );
+        $path = $this->writeFile("student_id;module_id;priority\r\n1001;1;1\r\n1002;1;1\r\n");
+
+        $result = $workflow->run($path);
+
+        self::assertSame([], $result->errors);
+        self::assertSame([], $result->validationErrors);
+        self::assertSame(2, $result->assignedCount);
+        self::assertCount(1, $result->exportFilePaths);
+        self::assertStringEndsWith('TECH_2025-2026.tsv', $result->exportFilePaths[0]);
+        self::assertFileExists($result->exportFilePaths[0]);
+        self::assertStringContainsString("\t", (string) file_get_contents($result->exportFilePaths[0]), 'разделитель TSV — табуляция (ADR-003)');
+        self::assertNotNull($result->archiveBytes);
+        self::assertNotNull($result->archiveName);
+    }
+
     public function testImportErrorsBlockDistribution(): void
     {
         $workflow = $this->buildWorkflow();
@@ -213,6 +236,7 @@ final class WebWorkflowTest extends TestCase
         array $students = [],
         array $modules = [],
         string $algorithm = WebWorkflow::DEFAULT_ALGORITHM,
+        ExportFormat $format = ExportFormat::Csv,
     ): WebWorkflow {
         return new WebWorkflow(
             students: $students === []
@@ -224,7 +248,7 @@ final class WebWorkflowTest extends TestCase
             schoolCodes: [self::SCHOOL_ID => 'TECH'],
             ratingWeights: $this->ratingWeights(),
             algorithm: $algorithm,
-            format: ExportFormat::Csv,
+            format: $format,
             exportDirectory: $this->exportDir,
         );
     }

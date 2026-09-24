@@ -6,11 +6,11 @@ namespace App\Tests\Unit\Ui\Cli;
 
 /**
  * Фейковое PDO-соединение (B3-05, юнит-тесты команды): не соединяется с БД,
- * prepare() отдаёт строки для readGroups()/readEligibleSchools(), exec()
- * перехватывает DELETE (план §2.2/§2.7 — сырой PDO вне контрактов).
+ * prepare() отдаёт строки для readGroups()/readEligibleSchools()/readSchoolCodes(),
+ * exec() перехватывает DELETE (план §2.2/§2.7 — сырой PDO вне контрактов).
  *
- * Свойства groupRows/eligibleRows заполняются тестом; execCalls фиксирует
- * удаления для проверки замены при повторном запуске.
+ * Свойства groupRows/eligibleRows/schoolRows заполняются тестом; execCalls
+ * фиксирует удаления для проверки замены при повторном запуске.
  */
 final class FakePdo extends \PDO
 {
@@ -19,6 +19,9 @@ final class FakePdo extends \PDO
 
     /** @var list<array<string, int|string>> */
     public array $eligibleRows = [];
+
+    /** @var list<array{id: int|string, code: string|null}> */
+    public array $schoolRows = [];
 
     /** @var list<string> */
     public array $execCalls = [];

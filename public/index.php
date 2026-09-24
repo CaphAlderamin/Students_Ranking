@@ -3,16 +3,18 @@
 declare(strict_types=1);
 
 /**
- * Веб-точка входа B4-04/B4-06: минимальная страница полного цикла распределения.
+ * Веб-точка входа B4-04/B4-06/B4-05: минимальная страница полного цикла распределения.
  *
  * Связка (glue) веб-контура: читает конфиги и каталоги из БД (только чтение —
  * решение §2.5 plan-B4-04), выбирает источник заявок по radio `source` из формы
- * (файл → WebWorkflow::run, БД → WebWorkflow::runWithApplications, B4-06), выполняет
+ * (файл → WebWorkflow::run, БД → WebWorkflow::runWithApplications, B4-06), а также
+ * алгоритм (date|criteria) и формат экспорта (csv|tsv) из формы (B4-05), выполняет
  * конвейер {@see \App\Ui\Web\WebWorkflow} и отдаёт ZIP-архив отчётных файлов
  * (var/export/) либо страницу с сообщением.
  *
  * Структура повторяет bin/console (B3-05) и сырой PDO для групп/карты школ
- * (паттерн DistributeCommand); унификация бутстрапа CLI/веба — задача B4-05.
+ * (паттерн DistributeCommand); унификация бутстрапа CLI/веба — контур экспорта
+ * (тот же ExporterFactory + SchoolReportAssembler, что в DistributeCommand, B4-05).
  * Без фреймворков и авторизации (stack/client.md: «минимальный веб»); безопасность
  * вывода — htmlspecialchars; контент файла валидирует импортёр (B4-03).
  *
@@ -51,41 +53,70 @@ $distributionConfig = require $root . '/config/distribution.php';
 /** @var array{format: string, directory: string} $exportConfig */
 $exportConfig = require $root . '/config/export.php';
 
-$workflow = new WebWorkflow(
-    students: array_values((new PdoStudentRepository($pdoFactory))->findAllByAdmissionYear(SeedCatalog::ADMISSION_YEAR)),
-    modules: array_values((new PdoModuleRepository($pdoFactory))->findAll()),
-    groups: readGroups($pdo),
-    moduleEligibleSchools: readEligibleSchools($pdo),
-    schoolCodes: readSchoolCodes($pdo),
-    ratingWeights: $ratingWeights,
-    algorithm: WebWorkflow::DEFAULT_ALGORITHM,
-    targetQuotaNoApplicationStrategy: $distributionConfig['target_quota_no_application_strategy'],
-    format: ExportFormat::from($exportConfig['format']),
-    exportDirectory: $root . DIRECTORY_SEPARATOR . $exportConfig['directory'],
-);
+// Каталоги/конфиги читаются один раз; сам WebWorkflow строится в handlePost()
+// с выбранными из формы algorithm/format (B4-05) — конвейер не хранит выбор.
+$catalog = [
+    'students' => array_values((new PdoStudentRepository($pdoFactory))->findAllByAdmissionYear(SeedCatalog::ADMISSION_YEAR)),
+    'modules' => array_values((new PdoModuleRepository($pdoFactory))->findAll()),
+    'groups' => readGroups($pdo),
+    'moduleEligibleSchools' => readEligibleSchools($pdo),
+    'schoolCodes' => readSchoolCodes($pdo),
+];
+
+$webConfig = [
+    'root' => $root,
+    'ratingWeights' => $ratingWeights,
+    'targetQuotaNoApplicationStrategy' => $distributionConfig['target_quota_no_application_strategy'],
+    'exportDirectory' => $root . DIRECTORY_SEPARATOR . $exportConfig['directory'],
+    'defaultFormat' => $exportConfig['format'],
+];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    handlePost($workflow, $pdoFactory);
+    handlePost($catalog, $webConfig, $pdoFactory);
     // handlePost() завершает ответ (скачивание ZIP) либо возвращает управление для формы.
 }
 
 renderPage();
 
 /**
- * Обрабатывает POST: выбор источника заявок (radio source=file|db, B4-06),
- * запуск конвейера, отдача архива.
+ * Обрабатывает POST: источник заявок (radio source=file|db, B4-06) + выбор
+ * алгоритма/формата (B4-05), запуск конвейера, отдача архива.
  *
  * При успехе отправляет ZIP и завершает скрипт; при блокировке/ошибке — рендерит
  * страницу с сообщением и завершает контролируемо.
+ *
+ * @param array<string, mixed> $catalog   каталоги/конфиги, прочитанные один раз
+ *                                        ({students, modules, groups, moduleEligibleSchools, schoolCodes})
+ * @param array<string, mixed> $webConfig связка (root, ratingWeights, targetQuotaNoApplicationStrategy,
+ *                                        exportDirectory, defaultFormat)
  */
-function handlePost(WebWorkflow $workflow, \App\Infrastructure\Db\PdoFactory $pdoFactory): void
+function handlePost(array $catalog, array $webConfig, \App\Infrastructure\Db\PdoFactory $pdoFactory): void
 {
     $source = (string) ($_POST['source'] ?? '');
     $message = '';
     $result = null;
     $sourceLabel = $source === 'db' ? 'заявки из БД' : 'файл';
+    $algorithm = (string) ($_POST['algorithm'] ?? WebWorkflow::DEFAULT_ALGORITHM);
+    $formatValue = (string) ($_POST['format'] ?? $webConfig['defaultFormat']);
 
     try {
+        $format = ExportFormat::tryFrom($formatValue);
+        if ($format === null) {
+            throw new \RuntimeException('Неизвестный формат экспорта: ' . $formatValue);
+        }
+        $workflow = new WebWorkflow(
+            students: $catalog['students'],
+            modules: $catalog['modules'],
+            groups: $catalog['groups'],
+            moduleEligibleSchools: $catalog['moduleEligibleSchools'],
+            schoolCodes: $catalog['schoolCodes'],
+            ratingWeights: $webConfig['ratingWeights'],
+            algorithm: $algorithm,
+            targetQuotaNoApplicationStrategy: $webConfig['targetQuotaNoApplicationStrategy'],
+            format: $format,
+            exportDirectory: $webConfig['exportDirectory'],
+        );
+
         if ($source === 'file') {
             $file = $_FILES['applications'] ?? null;
             if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
@@ -120,7 +151,7 @@ function handlePost(WebWorkflow $workflow, \App\Infrastructure\Db\PdoFactory $pd
         sendArchive((string) $result->archiveName, $result->archiveBytes);
     }
 
-    renderPage($message, $result, $source, $sourceLabel);
+    renderPage($message, $result, $source, $sourceLabel, $algorithm, $formatValue);
 }
 
 /**
@@ -136,16 +167,23 @@ function sendArchive(string $archiveName, string $bytes): void
 }
 
 /**
- * Рендерит страницу: форма (radio источник заявок) + результат последнего запуска.
+ * Рендерит страницу: форма (radio источник заявок + выбор алгоритма/формата B4-05)
+ * + результат последнего запуска.
  *
- * @param string                        $source       выбранный источник (file|db)
- * @param string                        $sourceLabel  читаемая подпись источника («файл <имя>» / «заявки из БД»)
+ * @param string      $error        сообщение об ошибке блокировки
+ * @param \App\Ui\Web\WebResult|null $result результат последнего конвейера
+ * @param string      $source       выбранный источник (file|db)
+ * @param string      $sourceLabel  читаемая подпись источника («файл <имя>» / «заявки из БД»)
+ * @param string      $algorithm    выбранный алгоритм (date|criteria)
+ * @param string      $formatValue  выбранный формат (csv|tsv)
  */
 function renderPage(
     string $error = '',
     ?\App\Ui\Web\WebResult $result = null,
     string $source = 'file',
     string $sourceLabel = 'файл',
+    string $algorithm = 'date',
+    string $formatValue = 'csv',
 ): void {
     $esc = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
 
@@ -170,7 +208,8 @@ function renderPage(
                 '<br>',
                 array_map(fn (string $path): string => $esc($path), $result->exportFilePaths),
             );
-            $notice = '<div class="ok"><p>Источник: ' . $esc($sourceLabel) . '. Распределено студентов: '
+            $notice = '<div class="ok"><p>Источник: ' . $esc($sourceLabel) . '. Алгоритм: '
+                . $esc($algorithm) . '. Формат: ' . $esc($formatValue) . '. Распределено студентов: '
                 . $result->assignedCount . ' / '
                 . $result->totalStudents . ' (R-11). Скачайте архив: '
                 . '<strong>' . $esc((string) $result->archiveName) . '</strong>.</p>'
@@ -180,6 +219,10 @@ function renderPage(
 
     $fileChecked = $source === 'file' ? ' checked' : '';
     $dbChecked = $source === 'db' ? ' checked' : '';
+    $dateSelected = $algorithm === 'date' ? ' selected' : '';
+    $criteriaSelected = $algorithm === 'criteria' ? ' selected' : '';
+    $csvSelected = $formatValue === 'csv' ? ' selected' : '';
+    $tsvSelected = $formatValue === 'tsv' ? ' selected' : '';
 
     echo '<!DOCTYPE html>
 <html lang="ru">
@@ -194,6 +237,7 @@ function renderPage(
   input[type="radio"] { margin-right: .35rem; vertical-align: middle; }
   fieldset { border: 1px solid #ccc; border-radius: .25rem; margin-bottom: 1rem; padding: .75rem 1rem; }
   legend { font-weight: bold; padding: 0 .35rem; }
+  select { display: block; margin-bottom: .75rem; }
   button { padding: .4rem .8rem; }
   .error { color: #b00020; }
   .ok { color: #15632a; }
@@ -204,6 +248,20 @@ function renderPage(
 <body>
 <h1>Распределение студентов на модули МДС</h1>
 <form method="post" enctype="multipart/form-data">
+  <fieldset>
+    <legend>Параметры распределения</legend>
+    <label for="algorithm">Алгоритм ранжирования</label>
+    <select id="algorithm" name="algorithm">
+      <option value="date"' . $dateSelected . '>По дате подачи (date)</option>
+      <option value="criteria"' . $criteriaSelected . '>По критериям (criteria)</option>
+    </select>
+    <label for="format">Формат отчётных файлов</label>
+    <select id="format" name="format">
+      <option value="csv"' . $csvSelected . '>CSV «;» (utf-8)</option>
+      <option value="tsv"' . $tsvSelected . '>TSV «tab»</option>
+    </select>
+    <p class="hint">Алгоритм — R-17; формат — ADR-003. Выбор применяется и к CLI (--algorithm/--format, B4-05).</p>
+  </fieldset>
   <fieldset>
     <legend>Источник заявок</legend>
     <label for="source-file">
@@ -220,7 +278,7 @@ function renderPage(
   <button type="submit">Запустить распределение</button>
 </form>
 ' . $notice . '
-<p class="hint">Алгоритм: по дате подачи (date). Выбор алгоритма и формата — в B4-05.</p>
+<p class="hint">По умолчанию: алгоритм date, формат csv (config/export.php).</p>
 </body>
 </html>';
 }

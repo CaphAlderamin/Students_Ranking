@@ -3,15 +3,18 @@
 declare(strict_types=1);
 
 /**
- * Точка входа CLI (B3-05): собирает продакшен-связку и регистрирует DistributeCommand.
+ * Точка входа CLI (B3-05, экспорт — B4-05): собирает продакшен-связку и
+ * регистрирует DistributeCommand (распределение + экспорт отчётов и ZIP).
  *
  * Параметры соединения — из config/db.php (игнорируется git, источник — db.php.example);
- * веса рейтинга — config/ranking.php (ADR-002); флаг ADR-004 — config/distribution.php.
+ * веса рейтинга — config/ranking.php (ADR-002); флаг ADR-004 — config/distribution.php;
+ * дефолтный формат и каталог экспорта — config/export.php (ADR-003).
  * Использование:
- *   php bin/console distribute --algorithm=date|criteria
+ *   php bin/console distribute --algorithm=date|criteria [--format=csv|tsv]
  */
 
 use App\Application\Ranking\CriteriaRating;
+use App\Domain\Enum\ExportFormat;
 use App\Domain\ValueObject\RatingWeights;
 use App\Infrastructure\Db\PdoApplicationRepository;
 use App\Infrastructure\Db\PdoFactory;
@@ -39,6 +42,9 @@ $ratingWeights = new RatingWeights(
 /** @var array{target_quota_no_application_strategy: string} $distributionConfig */
 $distributionConfig = require $root . '/config/distribution.php';
 
+/** @var array{format: string, directory: string} $exportConfig */
+$exportConfig = require $root . '/config/export.php';
+
 $distribute = new DistributeCommand(
     students: new PdoStudentRepository($pdoFactory),
     modules: new PdoModuleRepository($pdoFactory),
@@ -46,6 +52,8 @@ $distribute = new DistributeCommand(
     pdo: $pdo,
     criteriaRating: new CriteriaRating($ratingWeights),
     targetQuotaNoApplicationStrategy: $distributionConfig['target_quota_no_application_strategy'],
+    defaultFormat: ExportFormat::from($exportConfig['format']),
+    exportDirectory: $root . DIRECTORY_SEPARATOR . $exportConfig['directory'],
 );
 
 $application = new Application('Students Ranking', '1.0.0');

@@ -25,7 +25,7 @@ help:
 	@echo "  reset-db      - Reset the database"
 	@echo "  reset-db-migrate - Reset the database and run migrations"
 	@echo "  reset-db-migrate-seed - Reset the database, run migrations, and seed"
-	@echo "  distribute    - Run distribution via bin/console (ALGO=date|criteria, FMT=tsv reserved for B4)"
+	@echo "  distribute    - Run distribution via bin/console (ALGO=date|criteria, FMT=csv|tsv, B4-05)"
 	@echo "  web           - Run web UI (http://127.0.0.1:8080/, dev server php -S :8080, docroot public/, B4-04)"
 	@echo "  web-stop      - Stop web UI server in container (fallback if Ctrl+C missed)"
 	@echo "  test          - Run tests"
@@ -63,11 +63,12 @@ reset-db-migrate:
 reset-db-migrate-seed:
 	@$(PHP_EXEC) sh /app/scripts/db-reset.sh seed
 
+# Алгоритм датирования: date (по умолчанию) или criteria (R-17); формат экспорта csv|tsv (B4-05, ADR-003).
 ALGO ?= date
 FMT ?= tsv
 
 distribute:
-	@$(PHP_EXEC) php bin/console distribute --algorithm=$(ALGO)
+	@$(PHP_EXEC) php bin/console distribute --algorithm=$(ALGO) --format=$(FMT)
 
 web:
 	@$(COMPOSE) up -d

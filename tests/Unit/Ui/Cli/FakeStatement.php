@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Unit\Ui\Cli;
 
 /**
- * Фейковый PDOStatement (B3-05): execute() без БД, fetchAll() отдаёт
- * предзаданные строки — для readGroups()/readEligibleSchools() команды.
+ * Фейковый PDOStatement (B3-05, B4-05): execute() без БД, fetchAll() отдаёт
+ * предзаданные строки — для readGroups()/readEligibleSchools()/readSchoolCodes().
  */
 final class FakeStatement extends \PDOStatement
 {
@@ -29,6 +29,9 @@ final class FakeStatement extends \PDOStatement
                 ),
                 $fake->eligibleRows,
             );
+        }
+        if (str_contains($query, 'FROM schools')) {
+            $this->rows = $fake->schoolRows;
         }
     }
 
