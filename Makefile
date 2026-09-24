@@ -12,7 +12,7 @@ PHP_EXEC := $(COMPOSE) exec -T php
 PHPUNIT := $(wildcard vendor/bin/phpunit)
 PHPSTAN := $(wildcard vendor/bin/phpstan)
 
-.PHONY: up down restart composer-install migrate seed reset-db reset-db-migrate reset-db-migrate-seed distribute web test stan coverage dbml
+.PHONY: up down restart composer-install migrate seed reset-db reset-db-migrate reset-db-migrate-seed distribute web web-stop test stan coverage dbml
 
 help:
 	@echo "Available commands:"
@@ -27,6 +27,7 @@ help:
 	@echo "  reset-db-migrate-seed - Reset the database, run migrations, and seed"
 	@echo "  distribute    - Run distribution via bin/console (ALGO=date|criteria, FMT=tsv reserved for B4)"
 	@echo "  web           - Run web UI (http://127.0.0.1:8080/, dev server php -S :8080, docroot public/, B4-04)"
+	@echo "  web-stop      - Stop web UI server in container (fallback if Ctrl+C missed)"
 	@echo "  test          - Run tests"
 	@echo "  stan          - Run PHPStan"
 	@echo "  stan-test     - Run PHPStan and tests"
@@ -70,7 +71,10 @@ distribute:
 
 web:
 	@$(COMPOSE) up -d
-	@$(PHP_EXEC) sh /app/scripts/docker-web.sh
+	@$(COMPOSE) exec php sh /app/scripts/docker-web.sh
+
+web-stop:
+	@$(PHP_EXEC) sh /app/scripts/docker-web-stop.sh
 
 test:
 	@$(if $(PHPUNIT),$(PHP_EXEC) sh /app/scripts/docker-test.sh,echo [B1-03] phpunit не установлен: ожидается в B1-03)
