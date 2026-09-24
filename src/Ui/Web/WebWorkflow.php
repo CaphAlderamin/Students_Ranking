@@ -22,17 +22,20 @@ use App\Ui\Cli\RankingStrategyFactory;
 
 /**
  * Конвейер веб-контура (B4-04, план §2.2): импорт файла заявок → глубокая проверка
- * R-13 → распределение → экспорт по школам → ZIP-архив.
+ * R-13 → распределение → экспорт по школам → ZIP-архив. С B4-06 — единый конвейер
+ * для двух источников заявок: файла (`run`) и готового списка из БД (`runWithApplications`).
  *
  * Чистый Ui-сервис: каталоги и конфиги приходят через конструктор (связка
  * public/index.php), БД — только на чтение; заявки в БД НЕ пишутся (веб = ephemeral,
  * разделение concerns с CLI-контуром, решение §2.5). Запуск независим и
  * детерминирован: то же ядро DistributionService и те же дефолты, что в CLI
  * (алгоритм date — вариант A §2.5; формат csv из config/export.php, ADR-003).
+ * Источник заявок (файл/БД) выбирает glue (public/index.php, B4-06), не конвейер.
  *
- * Политика блокировок §2.5: ошибки импорта (B4-03) или нарушения R-13 останавливают
- * конвейер ДО распределения — результат возвращается с errors/validationErrors,
- * архив пуст, заявки с неполным файлом не обрабатываются частично.
+ * Политика блокировок §2.5: ошибки импорта (B4-03), нарушения R-13 или пустой
+ * список заявок (B4-06, Q-B4-06-2) останавливают конвейер ДО распределения —
+ * результат возвращается с errors/validationErrors, архив пуст, заявки с неполным
+ * файлом не обрабатываются частично.
  *
  * Исключения (\InvalidArgumentException/\RuntimeException) пробрасываются наружу
  * как ошибки связки/ядра и перехватываются в public/index.php.
@@ -68,7 +71,7 @@ final readonly class WebWorkflow
     }
 
     /**
-     * Выполняет конвейер: import → R-13 → distribute → export → zip.
+     * Выполняет конвейер: import → pipeline.
      *
      * @param non-empty-string $filePath путь к загруженному файлу (csv/tsv, tmp_name)
      *
@@ -89,8 +92,46 @@ final readonly class WebWorkflow
             return new WebResult(errors: $import->errors);
         }
 
+        return $this->pipeline($import->applications);
+    }
+
+    /**
+     * Выполняет конвейер на готовом списке заявок (источник выбран glue'ом, B4-06).
+     *
+     * Режим «заявки из БД» (Q-B4-06-1, radio source=db): импорт-фазы нет, поэтому
+     * errors жёстко пустые; R-13 проверяется как обычно (защита от неконсистентной БД).
+     *
+     * @param list<Application> $applications заявки из БД (PdoApplicationRepository::findAll, B2-01)
+     *
+     * @throws \InvalidArgumentException при пустом списке заявок (пустая БД = поломка окружения,
+     *                                   политика блокировки §2.5; Q-B4-06-2)
+     * @throws \InvalidArgumentException при несогласованности конфигов (R-17, R-19, ADR-003)
+     * @throws \RuntimeException         при сбое ядра/экспорта/архива (B3-03, B4-04)
+     */
+    public function runWithApplications(array $applications): WebResult
+    {
+        if ($applications === []) {
+            throw new \InvalidArgumentException(
+                'В базе данных нет заявок — загрузите файл или наполните БД (make reset-db-migrate-seed).',
+            );
+        }
+
+        return $this->pipeline($applications);
+    }
+
+    /**
+     * Общий конвейер после получения заявок: R-13 → distribute → export → zip.
+     *
+     * @param list<Application> $applications заявки (из файла B4-03 или из БД B4-06)
+     *
+     * @throws \InvalidArgumentException при несогласованности конфигов (R-17, R-19, ADR-003)
+     * @throws \RuntimeException         при сбое ядра (инварианты I-01…I-06, B3-03)
+     *                                  или экспорта/архива (B4-04)
+     */
+    private function pipeline(array $applications): WebResult
+    {
         // Блокировка: нарушения R-13 (только модули своего типа группы) — до распределения.
-        $validationErrors = $this->validateR13($import->applications);
+        $validationErrors = $this->validateR13($applications);
         if ($validationErrors !== []) {
             return new WebResult(validationErrors: $validationErrors);
         }
@@ -105,7 +146,7 @@ final readonly class WebWorkflow
             modules: $this->modules,
             groups: $this->groups,
             students: $this->students,
-            applications: $import->applications,
+            applications: $applications,
             moduleEligibleSchools: $this->moduleEligibleSchools,
             targetQuotaNoApplicationStrategy: $this->targetQuotaNoApplicationStrategy,
         ))->distribute();

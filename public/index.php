@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 /**
- * Веб-точка входа B4-04: минимальная страница полного цикла распределения.
+ * Веб-точка входа B4-04/B4-06: минимальная страница полного цикла распределения.
  *
  * Связка (glue) веб-контура: читает конфиги и каталоги из БД (только чтение —
- * решение §2.5 plan-B4-04), выполняет конвейер {@see \App\Ui\Web\WebWorkflow} и
- * отдаёт ZIP-архив отчётных файлов (var/export/) либо страницу с сообщением.
+ * решение §2.5 plan-B4-04), выбирает источник заявок по radio `source` из формы
+ * (файл → WebWorkflow::run, БД → WebWorkflow::runWithApplications, B4-06), выполняет
+ * конвейер {@see \App\Ui\Web\WebWorkflow} и отдаёт ZIP-архив отчётных файлов
+ * (var/export/) либо страницу с сообщением.
  *
  * Структура повторяет bin/console (B3-05) и сырой PDO для групп/карты школ
  * (паттерн DistributeCommand); унификация бутстрапа CLI/веба — задача B4-05.
@@ -19,6 +21,7 @@ declare(strict_types=1);
 
 use App\Domain\Enum\ExportFormat;
 use App\Domain\ValueObject\RatingWeights;
+use App\Infrastructure\Db\PdoApplicationRepository;
 use App\Infrastructure\Db\PdoFactory;
 use App\Infrastructure\Db\PdoModuleRepository;
 use App\Infrastructure\Db\PdoStudentRepository;
@@ -62,39 +65,51 @@ $workflow = new WebWorkflow(
 );
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    handlePost($workflow);
+    handlePost($workflow, $pdoFactory);
     // handlePost() завершает ответ (скачивание ZIP) либо возвращает управление для формы.
 }
 
 renderPage();
 
 /**
- * Обрабатывает POST: валидация загруженного файла, запуск конвейера, отдача архива.
+ * Обрабатывает POST: выбор источника заявок (radio source=file|db, B4-06),
+ * запуск конвейера, отдача архива.
  *
  * При успехе отправляет ZIP и завершает скрипт; при блокировке/ошибке — рендерит
  * страницу с сообщением и завершает контролируемо.
  */
-function handlePost(WebWorkflow $workflow): void
+function handlePost(WebWorkflow $workflow, \App\Infrastructure\Db\PdoFactory $pdoFactory): void
 {
+    $source = (string) ($_POST['source'] ?? '');
     $message = '';
     $result = null;
+    $sourceLabel = $source === 'db' ? 'заявки из БД' : 'файл';
 
     try {
-        $file = $_FILES['applications'] ?? null;
-        if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            throw new \RuntimeException('Прикрепите файл заявок (CSV/TSV).');
-        }
-        $tmpPath = (string) $file['tmp_name'];
-        $name = (string) $file['name'];
-        $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-        if (!in_array($extension, ['csv', 'tsv'], true)) {
-            throw new \RuntimeException('Допустимые расширения файла: .csv или .tsv (получено: .' . $extension . ').');
-        }
-        if ($tmpPath === '' || !is_uploaded_file($tmpPath)) {
-            throw new \RuntimeException('Загруженный файл повреждён — повторите отправку.');
-        }
+        if ($source === 'file') {
+            $file = $_FILES['applications'] ?? null;
+            if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                throw new \RuntimeException('Прикрепите файл заявок (CSV/TSV).');
+            }
+            $tmpPath = (string) $file['tmp_name'];
+            $name = (string) $file['name'];
+            $sourceLabel = 'файл ' . $name;
+            $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+            if (!in_array($extension, ['csv', 'tsv'], true)) {
+                throw new \RuntimeException('Допустимые расширения файла: .csv или .tsv (получено: .' . $extension . ').');
+            }
+            if ($tmpPath === '' || !is_uploaded_file($tmpPath)) {
+                throw new \RuntimeException('Загруженный файл повреждён — повторите отправку.');
+            }
 
-        $result = $workflow->run($tmpPath);
+            $result = $workflow->run($tmpPath);
+        } elseif ($source === 'db') {
+            $applications = (new PdoApplicationRepository($pdoFactory))->findAll();
+            $sourceLabel = 'заявки из БД (' . count($applications) . ')';
+            $result = $workflow->runWithApplications($applications);
+        } else {
+            throw new \RuntimeException('Выберите источник заявок: файл или база данных.');
+        }
     } catch (ImportException $exception) {
         $message = $exception->getMessage();
     } catch (\InvalidArgumentException | \RuntimeException $exception) {
@@ -105,7 +120,7 @@ function handlePost(WebWorkflow $workflow): void
         sendArchive((string) $result->archiveName, $result->archiveBytes);
     }
 
-    renderPage($message, $result);
+    renderPage($message, $result, $source, $sourceLabel);
 }
 
 /**
@@ -121,10 +136,17 @@ function sendArchive(string $archiveName, string $bytes): void
 }
 
 /**
- * Рендерит страницу: форма + результат последнего запуска (htmlspecialchars).
+ * Рендерит страницу: форма (radio источник заявок) + результат последнего запуска.
+ *
+ * @param string                        $source       выбранный источник (file|db)
+ * @param string                        $sourceLabel  читаемая подпись источника («файл <имя>» / «заявки из БД»)
  */
-function renderPage(string $error = '', ?\App\Ui\Web\WebResult $result = null): void
-{
+function renderPage(
+    string $error = '',
+    ?\App\Ui\Web\WebResult $result = null,
+    string $source = 'file',
+    string $sourceLabel = 'файл',
+): void {
     $esc = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
 
     $notice = '';
@@ -148,12 +170,16 @@ function renderPage(string $error = '', ?\App\Ui\Web\WebResult $result = null): 
                 '<br>',
                 array_map(fn (string $path): string => $esc($path), $result->exportFilePaths),
             );
-            $notice = '<div class="ok"><p>Распределено студентов: ' . $result->assignedCount . ' / '
+            $notice = '<div class="ok"><p>Источник: ' . $esc($sourceLabel) . '. Распределено студентов: '
+                . $result->assignedCount . ' / '
                 . $result->totalStudents . ' (R-11). Скачайте архив: '
                 . '<strong>' . $esc((string) $result->archiveName) . '</strong>.</p>'
                 . '<p class="files">Отчётные файлы (var/export/):<br>' . $fileList . '</p></div>';
         }
     }
+
+    $fileChecked = $source === 'file' ? ' checked' : '';
+    $dbChecked = $source === 'db' ? ' checked' : '';
 
     echo '<!DOCTYPE html>
 <html lang="ru">
@@ -165,21 +191,36 @@ function renderPage(string $error = '', ?\App\Ui\Web\WebResult $result = null): 
   h1 { font-size: 1.25rem; }
   label { display: block; margin-bottom: .5rem; }
   input[type="file"] { display: block; margin-bottom: .75rem; }
+  input[type="radio"] { margin-right: .35rem; vertical-align: middle; }
+  fieldset { border: 1px solid #ccc; border-radius: .25rem; margin-bottom: 1rem; padding: .75rem 1rem; }
+  legend { font-weight: bold; padding: 0 .35rem; }
   button { padding: .4rem .8rem; }
   .error { color: #b00020; }
   .ok { color: #15632a; }
   .files { font-size: .8rem; color: #555; word-break: break-all; }
+  .hint { font-size: .8rem; color: #555; }
 </style>
 </head>
 <body>
 <h1>Распределение студентов на модули МДС</h1>
 <form method="post" enctype="multipart/form-data">
-  <label for="applications">Файл заявок (CSV «;» или TSV «tab», колонки student_id;module_id;priority):</label>
-  <input type="file" id="applications" name="applications" accept=".csv,.tsv" required>
+  <fieldset>
+    <legend>Источник заявок</legend>
+    <label for="source-file">
+      <input type="radio" id="source-file" name="source" value="file" required' . $fileChecked . '>
+      Файл заявок (CSV «;» или TSV «tab», колонки student_id;module_id;priority)
+    </label>
+    <input type="file" id="applications" name="applications" accept=".csv,.tsv">
+    <label for="source-db">
+      <input type="radio" id="source-db" name="source" value="db"' . $dbChecked . '>
+      Заявки из базы данных
+    </label>
+    <p class="hint">Выберите «Файл заявок», чтобы загрузить файл (B4-03), или «Заявки из базы данных» — будут взяты заявки из applications (B4-06).</p>
+  </fieldset>
   <button type="submit">Запустить распределение</button>
 </form>
 ' . $notice . '
-<p class="files">Алгоритм: по дате подачи (date). Выбор алгоритма и формата — в B4-05.</p>
+<p class="hint">Алгоритм: по дате подачи (date). Выбор алгоритма и формата — в B4-05.</p>
 </body>
 </html>';
 }

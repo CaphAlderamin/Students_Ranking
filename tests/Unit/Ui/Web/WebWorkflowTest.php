@@ -6,6 +6,8 @@ namespace App\Tests\Unit\Ui\Web;
 
 use App\Domain\Enum\ExportFormat;
 use App\Domain\Enum\ModuleType;
+use App\Domain\Model\Application;
+use App\Domain\Model\ApplicationItem;
 use App\Domain\Model\Discipline;
 use App\Domain\Model\Module;
 use App\Domain\Model\Student;
@@ -21,10 +23,13 @@ use PHPUnit\Framework\TestCase;
  * Юнит-тесты веб-конвейера (B4-04, план v2 §4): WebWorkflow на in-memory каталогах
  * БЕЗ БД и реальных конфигов (паттерн DistributionServiceTest/SchoolReportAssemblerTest).
  *
- * Покрывают 7 кейсов: полный цикл CSV; полный цикл TSV; блокировка при ошибках
+ * Покрывают 7 кейсов B4-04: полный цикл CSV; полный цикл TSV; блокировка при ошибках
  * импорта; блокировка при неизвестном студенте файла (импорт-уровень, B4-03);
  * блокировка при нарушении R-13 (до распределения); недоступный файл → ImportException;
  * невалидный алгоритм → \InvalidArgumentException в конструкторе (R-17).
+ *
+ * Плюс 3 кейса B4-06: распределение из готового списка заявок (источник «БД»):
+ * полный цикл; блокировка R-13; пустой список → \InvalidArgumentException (Q-B4-06-2).
  */
 final class WebWorkflowTest extends TestCase
 {
@@ -145,6 +150,59 @@ final class WebWorkflowTest extends TestCase
         );
     }
 
+    public function testRunWithApplicationsDistributes(): void
+    {
+        $workflow = $this->buildWorkflow();
+        $applications = [
+            $this->application(1, 1001, [1]),
+            $this->application(2, 1002, [1]),
+        ];
+
+        $result = $workflow->runWithApplications($applications);
+
+        self::assertSame([], $result->errors);
+        self::assertSame([], $result->validationErrors);
+        self::assertSame(2, $result->assignedCount);
+        self::assertSame(2, $result->totalStudents);
+        self::assertCount(1, $result->exportFilePaths);
+        self::assertFileExists($result->exportFilePaths[0]);
+        self::assertNotNull($result->archiveBytes);
+        self::assertNotNull($result->archiveName);
+        self::assertStringEndsWith('.zip', $result->archiveName);
+    }
+
+    public function testRunWithApplicationsR13ViolationBlocks(): void
+    {
+        $students = [$this->student(1001, $this->technicalGroup())];
+        $modules = [
+            $this->module(1, ModuleType::Technical),
+            $this->module(2, ModuleType::Humanitarian),
+        ];
+        $workflow = $this->buildWorkflow($students, $modules);
+        // Заявка «из БД» технического студента содержит гуманитарный модуль (R-13).
+        $applications = [
+            $this->application(1, 1001, [1, 2]),
+        ];
+
+        $result = $workflow->runWithApplications($applications);
+
+        self::assertSame([], $result->errors);
+        self::assertNotSame([], $result->validationErrors);
+        self::assertStringContainsString('R-13', $result->validationErrors[0]);
+        self::assertSame(0, $result->assignedCount);
+        self::assertNull($result->archiveBytes);
+    }
+
+    public function testRunWithApplicationsEmptyThrows(): void
+    {
+        $workflow = $this->buildWorkflow();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('В базе данных нет заявок');
+
+        $workflow->runWithApplications([]);
+    }
+
     /**
      * Минимальный детерминированный каталог: по умолчанию 2 студента + 1 технический МДС-модуль.
      *
@@ -208,6 +266,21 @@ final class WebWorkflowTest extends TestCase
                 new Discipline($id * 10 + 3, 'Дисциплина 3', new Semester(5)),
             ],
         );
+    }
+
+    /**
+     * Заявка из «БД»/списка (B4-06): модули = приоритеты {1..N} непрерывно (R-12).
+     *
+     * @param list<int> $moduleIds модули в порядке приоритетов
+     */
+    private function application(int $id, int $studentId, array $moduleIds): Application
+    {
+        $items = [];
+        foreach ($moduleIds as $priority => $moduleId) {
+            $items[] = new ApplicationItem($moduleId, $priority + 1);
+        }
+
+        return new Application($id, $studentId, new \DateTimeImmutable('2026-09-01 10:00:00'), $items);
     }
 
     private function ratingWeights(): RatingWeights
